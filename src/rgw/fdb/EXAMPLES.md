@@ -445,6 +445,38 @@ if (lfdb::watch_event::cancelled == watch.wait_for_event()) {
 }
 ```
 
+libfdb exposes watch readiness (`ready()`), explicit cancellation (`cancel()`),
+blocking waits (`wait_for_event()`), and cooperative cancellation
+(`wait_for_event(stop_token)`) so applications can choose the timeout strategy
+that fits their scheduler. The same primitives can support polling, event-loop
+integration, stop-token cancellation, or a dedicated watch thread. You do not
+need to create an extra thread to put a timeout around a watch wait:
+
+```cpp
+bool wait_until_ready(lfdb::watch_handle& watch, auto timeout)
+{
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+
+  while (not watch.ready() && std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+
+  return watch.ready();
+}
+
+auto watch = lfdb::make_watch(dbh, "person/jose-capablanca/title");
+
+if (not wait_until_ready(watch, std::chrono::seconds(5))) {
+  watch.cancel();
+  handle_watch_timeout();
+  return;
+}
+
+if (lfdb::watch_event::changed == watch.wait_for_event()) {
+  handle_title_change();
+}
+```
+
 ```cpp
 // Let a jthread stop_token cancel a blocked transaction watch wait:
 std::jthread watch_thread {
