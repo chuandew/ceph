@@ -41,6 +41,8 @@
 #include <thread>
 #include <concepts>
 #include <exception>
+#include <stdexcept>
+#include <utility>
 
 #include <ranges>
 #include <iterator>
@@ -333,6 +335,18 @@ TEST_CASE("transaction watches", "[rgw][fdb]") {
 
   CHECK(lfdb::watch_event::cancelled == watch.wait_for_event());
   CHECK(watch.ready());
+ }
+
+ SECTION("moved-from watch can be probed and cancelled") {
+  auto watch = lfdb::make_watch(dbh, watch_key);
+  auto moved_watch = std::move(watch);
+
+  CHECK_FALSE(watch.ready());
+  CHECK_NOTHROW(watch.cancel());
+  CHECK_THROWS_AS(watch.wait_for_event(), std::invalid_argument);
+
+  moved_watch.cancel();
+  CHECK(lfdb::watch_event::cancelled == moved_watch.wait_for_event());
  }
 
  SECTION("throwing wait preserves cancellation as an exception") {

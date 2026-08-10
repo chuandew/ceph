@@ -155,6 +155,9 @@ void watched_loop(database_handle dbh, std::string_view key, std::stop_token sto
  }
 }
 
+/* watched_loop() runs until the watch is cancelled or an exception escapes.
+ * For more complex stop behavior, see make_watch(), ready(), cancel(), and
+ * wait_for_event(): */
 template <typename FnT>
 requires std::invocable<FnT&, std::string_view>
 void watched_loop(database_handle dbh, std::string_view key, FnT&& fn)
